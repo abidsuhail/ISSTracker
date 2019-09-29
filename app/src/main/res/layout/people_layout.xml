@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="10dp">
+
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:orientation="horizontal">
+      <TextView
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="Name : "
+          android:textSize="15dp"
+          android:padding="5dp"
+          android:textStyle="bold"/>
+      <TextView
+          android:id="@+id/people_name"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          tools:text="Name"
+          android:gravity="center_horizontal"
+          android:textSize="15dp"
+          android:padding="5dp"/>
+  </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Craft : "
+            android:textSize="15dp"
+            android:padding="5dp"
+            android:textStyle="bold"/>
+        <TextView
+            android:id="@+id/people_craft"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            tools:text="Craft"
+            android:gravity="center_horizontal"
+            android:textSize="15dp"
+            android:padding="5dp"/>
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/colorPrimary"/>
+</LinearLayout>

@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">ISSTracker</string>
+    <string name="title_activity_maps">ISS Satellite Tracker</string>
+</resources>
