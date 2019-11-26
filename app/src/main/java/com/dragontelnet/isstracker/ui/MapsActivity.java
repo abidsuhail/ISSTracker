@@ -5,24 +5,21 @@ import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.Handler;
-import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.fragment.app.FragmentActivity;
+import androidx.lifecycle.Observer;
+import androidx.lifecycle.ViewModelProviders;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.dragontelnet.isstracker.R;
 import com.dragontelnet.isstracker.adapter.PeopleListAdapter;
 import com.dragontelnet.isstracker.models.AstroPeople;
-import com.dragontelnet.isstracker.models.AstrosInSpace;
-import com.dragontelnet.isstracker.models.IssInfo;
 import com.dragontelnet.isstracker.models.IssPosition;
-import com.dragontelnet.isstracker.service.GetIssInfo;
-import com.dragontelnet.isstracker.service.RetrofitInstance;
+import com.dragontelnet.isstracker.viewmodel.MapsActivityViewModel;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -37,9 +34,6 @@ import java.util.List;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
 
@@ -51,13 +45,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private GoogleMap mMap;
     private LatLng issLocLatLng;
     private int delay = 1000; //1 sec
-    private List<AstroPeople> astroPeopleList;
+
+    private Observer<IssPosition> positionObserver;
+
     @BindView(R.id.start)
     Button start;
+
     @BindView(R.id.stop)
     Button stop;
+
     @BindView(R.id.peoples_space_btn)
     Button peoplesSpaceBtn;
+
     private static final String TAG = "MapsActivity";
 
     @Override
@@ -70,10 +69,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void init() {
         handler = new Handler();
-        progressDialog = new ProgressDialog(this);
-        progressDialog.setCanceledOnTouchOutside(false);
-        progressDialog.setMessage("Getting location,please wait....");
-        progressDialog.show();
+
+        setProgressDialog();
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -87,81 +84,62 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         start.setEnabled(false);
         start.setTextColor(getResources().getColor(android.R.color.darker_gray));
         mMap = googleMap;
-        GetIssInfo getIssInfo = RetrofitInstance.getRetrofitInstance();
-
         //refreshing per second
         handler.postDelayed(runnable = new Runnable() {
             public void run() {
+                getViewMode().getLocationUpdates().removeObservers(MapsActivity.this);
                 if (progressDialog.isShowing()) {
                     progressDialog.dismiss();
                 }
                 //getting location of ISS,per second
-                getLocation(getIssInfo);
+                getLocationUpdates();
             }
 
         }, delay);
 
     }
 
-    private void getAstrosName(PeopleListAdapter listAdapter) {
-        GetIssInfo getIssInfo = RetrofitInstance.getRetrofitInstance();
-        Call<AstrosInSpace> call = getIssInfo.getAstrosInSpace();
-        call.enqueue(new Callback<AstrosInSpace>() {
+    private void getLocationUpdates()
+    {
+        positionObserver=new Observer<IssPosition>() {
             @Override
-            public void onResponse(Call<AstrosInSpace> call, Response<AstrosInSpace> response) {
-                if (response.isSuccessful() && response.body()!=null) {
-
-                    astroPeopleList = response.body().getAstroPeopleList();
-                    listAdapter.onListLoaded(astroPeopleList);
-
-                }
-            }
-
-            @Override
-            public void onFailure(Call<AstrosInSpace> call, Throwable t) {
-
-            }
-        });
-
-    }
-
-
-    private void getLocation(GetIssInfo getIssInfo) {
-
-        Call<IssInfo> call = getIssInfo.getIssInfo();
-        call.enqueue(new Callback<IssInfo>() {
-            @Override
-            public void onResponse(Call<IssInfo> call, Response<IssInfo> response) {
-
-                IssPosition issPosition = response.body().getIssPosition();
+            public void onChanged(IssPosition issPosition) {
                 String latitude = issPosition.getLatitude();
                 String longitude = issPosition.getLongitude();
 
                 issLocLatLng = new LatLng(Double.parseDouble(latitude), Double.parseDouble(longitude));
 
+                //removing previous marker
                 if (marker != null) {
                     marker.remove();
                     marker.hideInfoWindow();
                 }
+
                 MarkerOptions markerOptions = new MarkerOptions()
                         .position(issLocLatLng)
                         .draggable(true)
                         .icon(BitmapDescriptorFactory.fromResource(R.drawable.sat))
                         .title("ISS");
+
                 marker = mMap.addMarker(markerOptions);
                 marker.setPosition(issLocLatLng);
                 mMap.animateCamera(CameraUpdateFactory.newLatLng(issLocLatLng));
                 marker.showInfoWindow();
-
             }
+        };
+        handler.postDelayed(runnable, delay);
 
+        getViewMode().getLocationUpdates().observe(this,positionObserver);
+    }
+
+    private void getAstrosName(PeopleListAdapter listAdapter) {
+
+        getViewMode().getAstrosName().observe(this, new Observer<List<AstroPeople>>() {
             @Override
-            public void onFailure(Call<IssInfo> call, Throwable t) {
-
+            public void onChanged(List<AstroPeople> astroPeopleList) {
+                listAdapter.onListLoaded(astroPeopleList);
             }
         });
-
-        handler.postDelayed(runnable, delay);
 
     }
 
@@ -196,8 +174,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @OnClick(R.id.peoples_space_btn)
     public void onShowPeopleBtn() {
-        View view=getLayoutInflater()
-                .inflate(R.layout.show_peoples_dialog,null,false);
+
+        View view=getPeoplesDialogView();
 
         AlertDialog.Builder builder=new AlertDialog.Builder(MapsActivity.this);
         builder.setPositiveButton("Close", new DialogInterface.OnClickListener() {
@@ -206,13 +184,42 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 dialog.dismiss();
             }
         });
-        RecyclerView recyclerView=view.findViewById(R.id.people_list_recycler);
-        recyclerView.setLayoutManager(new LinearLayoutManager(MapsActivity.this));
+
         PeopleListAdapter peopleListAdapter=new PeopleListAdapter();
-        recyclerView.setAdapter(peopleListAdapter);
-        getAstrosName(peopleListAdapter);
+        getRecyclerView(view).setAdapter(peopleListAdapter);
+
+        getAstrosName(peopleListAdapter);//setting adapter
+
         builder.setView(view);
         builder.create().show();
 
     }
+
+    private RecyclerView getRecyclerView(View view) {
+        RecyclerView recyclerView=view.findViewById(R.id.people_list_recycler);
+        recyclerView.setLayoutManager(new LinearLayoutManager(MapsActivity.this));
+        return recyclerView;
+    }
+
+    private View getPeoplesDialogView()
+    {
+        return getLayoutInflater()
+                .inflate(R.layout.show_peoples_dialog,null,false);
+    }
+
+
+    private MapsActivityViewModel getViewMode()
+    {
+        return ViewModelProviders.of(this).get(MapsActivityViewModel.class);
+    }
+
+
+    private void setProgressDialog()
+    {
+        progressDialog = new ProgressDialog(this);
+        progressDialog.setCanceledOnTouchOutside(false);
+        progressDialog.setMessage("Getting location,please wait....");
+        progressDialog.show();
+    }
+
 }
